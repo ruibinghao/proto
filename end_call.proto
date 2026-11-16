@@ -1,0 +1,56 @@
+/*
+   Copyright (c) 2026 Comcast
+   All rights reserved.
+
+   This source code and related materials are confidential and proprietary.
+   Unauthorized access, use, copying, modification, distribution, or disclosure
+   is strictly prohibited without prior written permission from Comcast.
+
+   This file is provided solely for use by authorized personnel under applicable
+   confidentiality obligations.
+*/
+
+syntax = "proto3";
+
+package comcast.agent.v1;
+
+import "buf/validate/validate.proto";
+
+// End the call. Can be sent by either side. Receiver should half-close.
+message EndCall {
+  // Reason for ending the call.
+  enum EndCallReason {
+    END_CALL_REASON_UNSPECIFIED = 0;
+
+    // Agent ended the call.
+    END_CALL_REASON_AGENT_HANGUP = 1;
+
+    // Caller ended the call.
+    END_CALL_REASON_CALLER_HANGUP = 2;
+
+    // No audio received within timeout.
+    END_CALL_REASON_MEDIA_TIMEOUT = 3;
+
+    // Internal error.
+    END_CALL_REASON_INTERNAL_ERROR = 4;
+
+    // Warm transfer rejected by the consultative agent.
+    END_CALL_REASON_CONSULTATION_REJECTED = 5;
+
+    // SIP bridge attempt failed during transfer.
+    END_CALL_REASON_BRIDGE_FAILED = 6;
+
+    // Call transfer completed successfully, parties bridged.
+    END_CALL_REASON_TRANSFER_COMPLETE = 7;
+
+    // Original caller hung up while consultative stream was active. Used as a
+    // force-teardown after CallStateEvent timeout, or when graceful shutdown is
+    // not possible.
+    END_CALL_REASON_ORIGINAL_CALLER_HANGUP = 8;
+  }
+
+  EndCallReason reason = 1 [(buf.validate.field).enum.defined_only = true];
+
+  // Optional human-readable explanation.
+  string explanation = 2;
+}

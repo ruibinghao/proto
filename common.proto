@@ -1,0 +1,58 @@
+/*
+   Copyright (c) 2026 Comcast
+   All rights reserved.
+
+   This source code and related materials are confidential and proprietary.
+   Unauthorized access, use, copying, modification, distribution, or disclosure
+   is strictly prohibited without prior written permission from Comcast.
+
+   This file is provided solely for use by authorized personnel under applicable
+   confidentiality obligations.
+*/
+
+syntax = "proto3";
+
+package comcast.agent.v1;
+
+import "buf/validate/validate.proto";
+
+// E.164 phone number.
+message PhoneNumber {
+  // E.164 format (e.g. +15551234567).
+  string e164_number = 1 [(buf.validate.field).string.pattern = "^\\+[1-9]\\d{1,14}$"];
+}
+
+// Phone number extension.
+message Extension {
+  // Extension number (e.g. "1234").
+  string number = 1 [(buf.validate.field).string.pattern = "^\\d{1,10}$"];
+}
+
+// Call participant.
+message PartyInfo {
+  // Exactly one of phone_number or extension must be set.
+  oneof number {
+    option (buf.validate.oneof).required = true;
+
+    // E.164 phone number of the party.
+    PhoneNumber phone_number = 1;
+
+    // Extension of the party.
+    Extension extension = 2;
+  }
+
+  // Display name, if known.
+  optional string name = 3;
+}
+
+// DTMF event sent to the agent.
+message DTMF {
+  // Valid characters are: "0", "1", "2", "3", "4", "5", "6", "7", "8", "9",
+  //                       "*", "#", "A", "B", "C", "D"
+  //
+  // See RFC 4733 Section 3.2: DTMF Events.
+  string event = 1 [
+    (buf.validate.field).string.max_len = 1,
+    (buf.validate.field).string.pattern = "^[0-9*#ABCD]$"
+  ];
+}

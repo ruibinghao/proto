@@ -1,0 +1,102 @@
+/*
+   Copyright (c) 2026 Comcast
+   All rights reserved.
+
+   This source code and related materials are confidential and proprietary.
+   Unauthorized access, use, copying, modification, distribution, or disclosure
+   is strictly prohibited without prior written permission from Comcast.
+
+   This file is provided solely for use by authorized personnel under applicable
+   confidentiality obligations.
+*/
+
+syntax = "proto3";
+
+package comcast.agent.v1;
+
+import "buf/validate/validate.proto";
+import "comcast/agent/v1/common.proto";
+
+// Agent-initiated action during the audio stream.
+message ServerAction {
+  oneof action {
+    // Request a call transfer.
+    Transfer transfer = 1;
+
+    // Confirmation of a call transfer - this should be sent by the agent after
+    // the consultation with the new party is complete (either accepted or
+    // rejected). This should only be sent for warm (attended) transfers and
+    // ONLY on the consultative stream / agent.
+    TransferConfirmation transfer_confirmation = 2;
+  }
+}
+
+// Call transfer details.
+message Transfer {
+  // Type of transfer.
+  enum TransferType {
+    TRANSFER_TYPE_UNSPECIFIED = 0;
+
+    // Cold (blind) transfer: call is forwarded immediately with no
+    // consultation.
+    TRANSFER_TYPE_COLD = 1;
+
+    // Warm (attended) transfer: agent consults destination before completing
+    // transfer.
+    TRANSFER_TYPE_WARM = 2;
+
+    // Direct-to-voicemail transfer. Routes the call directly to the target's
+    // voicemail without going through the standard ring cycle.
+    TRANSFER_TYPE_VOICEMAIL = 3;
+  }
+
+  // Transfer destination.
+  PartyInfo target = 1 [(buf.validate.field).required = true];
+
+  // Type of transfer.
+  TransferType type = 2 [(buf.validate.field).enum.defined_only = true];
+}
+
+// Confirmation of a call transfer.
+message TransferConfirmation {
+  option (buf.validate.message).cel = {
+    id: "transfer_confirmation.rejection_reason_required_on_rejected"
+    message: "rejection_reason must be set when type is REJECTED"
+    expression:
+      "this.type == "
+      "comcast.agent.v1.TransferConfirmation.ConfirmationType."
+      "CONFIRMATION_TYPE_REJECTED"
+      " ? this.rejection_reason != "
+      "comcast.agent.v1.TransferConfirmation.RejectionReason."
+      "REJECTION_REASON_UNSPECIFIED"
+      " : true"
+  };
+
+  // Confirmation type
+  enum ConfirmationType {
+    CONFIRMATION_TYPE_UNSPECIFIED = 0;
+
+    // Transfer accepted - transfer can be finalized and parties bridged.
+    CONFIRMATION_TYPE_ACCEPTED = 1;
+
+    // Transfer rejected - transfer cannot be completed, caller should remain
+    // connected to agent.
+    CONFIRMATION_TYPE_REJECTED = 2;
+  }
+
+  // Reason for rejection.
+  enum RejectionReason {
+    REJECTION_REASON_UNSPECIFIED = 0;
+
+    // Human agent explicitly declined the transfer.
+    REJECTION_REASON_TRANSFER_REJECTED = 1;
+
+    // Consultative agent detected voicemail, IVR, or other non-human entity.
+    REJECTION_REASON_NO_HUMAN = 2;
+  }
+
+  ConfirmationType type = 1 [(buf.validate.field).enum.defined_only = true];
+
+  // Required when type is REJECTED.
+  RejectionReason rejection_reason = 2 [(buf.validate.field).enum.defined_only = true];
+}

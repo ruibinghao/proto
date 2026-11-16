@@ -1,0 +1,36 @@
+/*
+   Copyright (c) 2026 Comcast
+   All rights reserved.
+
+   This source code and related materials are confidential and proprietary.
+   Unauthorized access, use, copying, modification, distribution, or disclosure
+   is strictly prohibited without prior written permission from Comcast.
+
+   This file is provided solely for use by authorized personnel under applicable
+   confidentiality obligations.
+*/
+
+syntax = "proto3";
+
+package comcast.agent.v1;
+
+import "buf/validate/validate.proto";
+
+// Non-terminal event about the state of the original call. Sent on the
+// consultative stream to inform the provider of a change without triggering
+// immediate teardown. The provider may continue sending audio (e.g., to inform
+// the transfer target) before closing the stream.
+message CallStateEvent {
+  enum EventType {
+    EVENT_TYPE_UNSPECIFIED = 0;
+
+    // The original caller has disconnected. The consultative stream remains
+    // active so the provider can gracefully inform the transfer target before
+    // ending the session. If the provider does not end the consultative stream
+    // within a reasonable timeout, CTAG will force teardown with
+    // EndCall(END_CALL_REASON_ORIGINAL_CALLER_HANGUP).
+    EVENT_TYPE_ORIGINAL_CALLER_HANGUP = 1;
+  }
+
+  EventType type = 1 [(buf.validate.field).enum.defined_only = true];
+}

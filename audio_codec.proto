@@ -1,0 +1,43 @@
+/*
+   Copyright (c) 2026 Comcast
+   All rights reserved.
+
+   This source code and related materials are confidential and proprietary.
+   Unauthorized access, use, copying, modification, distribution, or disclosure
+   is strictly prohibited without prior written permission from Comcast.
+
+   This file is provided solely for use by authorized personnel under applicable
+   confidentiality obligations.
+*/
+
+syntax = "proto3";
+
+package comcast.agent.v1;
+
+import "buf/validate/validate.proto";
+
+// Audio codec and framing parameters.
+message AudioCodecSpec {
+  // Supported audio codecs.
+  enum AudioCodec {
+    AUDIO_CODEC_UNSPECIFIED = 0;
+
+    // G.711 u-law, 8kHz/8-bit/64kbps.
+    AUDIO_CODEC_PCMU = 1;
+
+    // G.711 A-law, 8kHz/8-bit/64kbps.
+    AUDIO_CODEC_PCMA = 3;
+
+    // PCM 16-bit LE. sample_rate_hz required.
+    AUDIO_CODEC_L16LE = 4;
+  }
+
+  // Codec for audio frames.
+  AudioCodec codec = 1 [(buf.validate.field).enum.defined_only = true];
+
+  // Sample rate in Hz. Required for L16LE, not required for PCMU/PCMA.
+  int32 sample_rate_hz = 2;
+
+  // Packet duration in ms (default 20).
+  int32 ptime_ms = 3;
+}

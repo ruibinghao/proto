@@ -1,0 +1,72 @@
+/*
+   Copyright (c) 2026 Comcast
+   All rights reserved.
+
+   This source code and related materials are confidential and proprietary.
+   Unauthorized access, use, copying, modification, distribution, or disclosure
+   is strictly prohibited without prior written permission from Comcast.
+
+   This file is provided solely for use by authorized personnel under applicable
+   confidentiality obligations.
+*/
+
+syntax = "proto3";
+
+package comcast.agent.v1;
+
+import "buf/validate/validate.proto";
+import "comcast/agent/v1/audio_codec.proto";
+
+// Direction of the media stream.
+enum MediaDirection {
+  MEDIA_DIRECTION_UNSPECIFIED = 0;
+
+  // Agent can listen and speak (full duplex).
+  MEDIA_DIRECTION_BIDI = 1;
+
+  // Agent can only listen passively.
+  MEDIA_DIRECTION_LISTEN_ONLY = 2;
+}
+
+// Request to set up the media stream. Must be sent after CallSetupRequest,
+// before the first audio frame.
+message MediaSetupRequest {
+  // Audio codec and framing parameters.
+  AudioCodecSpec audio_codec_spec = 1 [(buf.validate.field).required = true];
+
+  // Direction of the media stream.
+  MediaDirection direction = 2 [(buf.validate.field).enum.defined_only = true];
+}
+
+// Response to a media setup request.
+message MediaSetupResponse {
+  // Media setup status.
+  enum MediaStatus {
+    MEDIA_STATUS_UNSPECIFIED = 0;
+    MEDIA_STATUS_ACCEPTED = 1;
+    MEDIA_STATUS_REJECTED = 2;
+  }
+
+  // Reason for rejection.
+  enum MediaSetupRejectionReason {
+    MEDIA_SETUP_REJECTION_REASON_UNSPECIFIED = 0;
+    MEDIA_SETUP_REJECTION_REASON_UNSUPPORTED_CODEC = 1;
+    MEDIA_SETUP_REJECTION_REASON_INVALID_DIRECTION = 2;
+    MEDIA_SETUP_REJECTION_REASON_INVALID_PTIME = 3;
+    MEDIA_SETUP_REJECTION_REASON_INTERNAL_ERROR = 4;
+  }
+
+  MediaStatus status = 1 [(buf.validate.field).enum.defined_only = true];
+
+  // Only set when status is REJECTED.
+  MediaSetupRejectionReason rejection_reason = 2 [(buf.validate.field).enum.defined_only = true];
+  string rejection_explanation = 3;
+
+  // Server's confirmed audio parameters. Only set when ACCEPTED.
+  AudioCodecSpec audio_codec_spec = 4;
+}
+
+// Signals that the call has been answered and the agent may begin sending
+// audio. The client must send this after receiving an ACCEPTED
+// MediaSetupResponse and after the call has been answered.
+message MediaReady {}

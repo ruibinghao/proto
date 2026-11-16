@@ -1,0 +1,95 @@
+/*
+   Copyright (c) 2026 Comcast
+   All rights reserved.
+
+   This source code and related materials are confidential and proprietary.
+   Unauthorized access, use, copying, modification, distribution, or disclosure
+   is strictly prohibited without prior written permission from Comcast.
+
+   This file is provided solely for use by authorized personnel under applicable
+   confidentiality obligations.
+*/
+
+syntax = "proto3";
+
+package comcast.agent.v1;
+
+import "comcast/agent/v1/call_setup.proto";
+import "comcast/agent/v1/call_state_event.proto";
+import "comcast/agent/v1/common.proto";
+import "comcast/agent/v1/end_call.proto";
+import "comcast/agent/v1/media_setup.proto";
+import "comcast/agent/v1/server_action.proto";
+import "comcast/agent/v1/transfer_result.proto";
+
+// Single bidi stream per call. One stream = one call lifecycle.
+//
+// Flow:
+//   Client -> CallSetupRequest        (must be first message)
+//   Server <- CallSetupResponse
+//   Client -> MediaSetupRequest
+//   Server <- MediaSetupResponse
+//   Client -> MediaReady              (call answered, agent may speak)
+//   Client -> audio frames
+//   Server <- audio frames / actions
+//   Either -> EndCall
+//   Both   -> half-close
+service VoiceAgentService {
+  rpc StreamCall(stream StreamCallRequest) returns (stream StreamCallResponse);
+}
+
+// =====================================================================
+// Stream Messages
+// =====================================================================
+
+// Client -> Server.
+message StreamCallRequest {
+  oneof payload {
+    // Call setup. Must be the first message.
+    CallSetupRequest call_setup = 1;
+
+    // Audio frame.
+    bytes audio = 2;
+
+    // End the call.
+    EndCall end_call = 3;
+
+    // Media stream setup. Must be sent after CallSetupRequest,
+    // before the first audio frame.
+    MediaSetupRequest media_setup = 5;
+
+    // Signals that the call has been answered and the agent may begin
+    // sending audio (e.g. greeting). Must be sent after MediaSetupResponse.
+    MediaReady media_ready = 6;
+
+    // DTMF event sent to the agent.
+    DTMF dtmf = 7;
+
+    // Transfer lifecycle event (warm transfer).
+    TransferResult transfer_result = 8;
+
+    // Non-terminal event about the original call state.
+    // Sent on the consultative stream only.
+    CallStateEvent call_state_event = 9;
+  }
+}
+
+// Server -> Client.
+message StreamCallResponse {
+  oneof payload {
+    // Call setup response. Sent after CallSetupRequest.
+    CallSetupResponse call_setup = 1;
+
+    // Audio frame.
+    bytes audio = 2;
+
+    // Agent-initiated action (e.g. transfer call).
+    ServerAction server_action = 3;
+
+    // End the call.
+    EndCall end_call = 4;
+
+    // Media stream setup response. Sent after MediaSetupRequest.
+    MediaSetupResponse media_setup = 5;
+  }
+}

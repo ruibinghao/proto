@@ -1,0 +1,276 @@
+/*
+   Copyright (c) 2026 Comcast
+   All rights reserved.
+
+   This source code and related materials are confidential and proprietary.
+   Unauthorized access, use, copying, modification, distribution, or disclosure
+   is strictly prohibited without prior written permission from Comcast.
+
+   This file is provided solely for use by authorized personnel under applicable
+   confidentiality obligations.
+*/
+
+syntax = "proto3";
+
+package comcast.agent.v1;
+
+import "buf/validate/validate.proto";
+
+// Transfer lifecycle event sent on the original stream.
+message TransferResult {
+  oneof result {
+    // Result of originating the consultation SIP leg.
+    OriginationResult origination = 1;
+
+    // Result of setting up the consultative gRPC stream.
+    CallSetupResult call_setup = 2;
+
+    // Result of the consultative agent's transfer decision.
+    ConsultationResult consultation = 3;
+
+    // Result of the SIP bridge attempt.
+    BridgeResult bridge = 4;
+
+    // Result of a cold (blind) transfer attempt.
+    ColdTransferResult cold_transfer = 5;
+  }
+}
+
+// Result of originating the consultation SIP leg. Sent on the original stream.
+message OriginationResult {
+  option (buf.validate.message).cel = {
+    id: "origination_result.failure_reason_required_on_failure"
+    message: "failure_reason must be set when status is FAILED"
+    expression:
+      "this.status == "
+      "comcast.agent.v1.OriginationResult.OriginationStatus."
+      "ORIGINATION_STATUS_FAILED"
+      " ? this.failure_reason != "
+      "comcast.agent.v1.OriginationResult.OriginationFailureReason."
+      "ORIGINATION_FAILURE_REASON_UNSPECIFIED"
+      " : true"
+  };
+
+  // Status of the origination attempt.
+  enum OriginationStatus {
+    ORIGINATION_STATUS_UNSPECIFIED = 0;
+
+    // Consultation SIP leg connected successfully.
+    ORIGINATION_STATUS_ESTABLISHED = 1;
+
+    // Consultation SIP leg failed to connect.
+    ORIGINATION_STATUS_FAILED = 2;
+  }
+
+  // Reason for origination failure.
+  enum OriginationFailureReason {
+    ORIGINATION_FAILURE_REASON_UNSPECIFIED = 0;
+
+    // Internal error during origination.
+    ORIGINATION_FAILURE_REASON_INTERNAL_ERROR = 1;
+
+    // Target did not answer within timeout.
+    ORIGINATION_FAILURE_REASON_NO_ANSWER = 2;
+
+    // Target is busy.
+    ORIGINATION_FAILURE_REASON_BUSY = 3;
+
+    // Target number is invalid or unroutable.
+    ORIGINATION_FAILURE_REASON_INVALID_TARGET = 4;
+  }
+
+  OriginationStatus status = 1 [(buf.validate.field).enum.defined_only = true];
+
+  // Only set when status is FAILED.
+  OriginationFailureReason failure_reason = 2 [(buf.validate.field).enum.defined_only = true];
+}
+
+// Result of setting up the consultative gRPC stream (CallSetup + MediaSetup).
+// Sent on the original stream after the consultative stream setup completes or
+// fails.
+message CallSetupResult {
+  option (buf.validate.message).cel = {
+    id: "call_setup_result.failure_reason_required_on_failure"
+    message: "failure_reason must be set when status is FAILED"
+    expression:
+      "this.status == "
+      "comcast.agent.v1.CallSetupResult.CallSetupStatus."
+      "CALL_SETUP_STATUS_FAILED"
+      " ? this.failure_reason != "
+      "comcast.agent.v1.CallSetupResult.CallSetupFailureReason."
+      "CALL_SETUP_FAILURE_REASON_UNSPECIFIED"
+      " : true"
+  };
+
+  // Status of the consultative stream setup.
+  enum CallSetupStatus {
+    CALL_SETUP_STATUS_UNSPECIFIED = 0;
+
+    // Consultative gRPC stream fully established.
+    CALL_SETUP_STATUS_ESTABLISHED = 1;
+
+    // Consultative gRPC stream setup failed.
+    CALL_SETUP_STATUS_FAILED = 2;
+  }
+
+  // Reason for setup failure.
+  enum CallSetupFailureReason {
+    CALL_SETUP_FAILURE_REASON_UNSPECIFIED = 0;
+
+    // Internal error during setup.
+    CALL_SETUP_FAILURE_REASON_INTERNAL_ERROR = 1;
+
+    // Provider rejected the call setup request.
+    CALL_SETUP_FAILURE_REASON_CALL_REJECTED = 2;
+
+    // Provider rejected the media setup request.
+    CALL_SETUP_FAILURE_REASON_MEDIA_REJECTED = 3;
+  }
+
+  CallSetupStatus status = 1 [(buf.validate.field).enum.defined_only = true];
+
+  // Only set when status is FAILED.
+  CallSetupFailureReason failure_reason = 2 [(buf.validate.field).enum.defined_only = true];
+}
+
+// Result of the consultative agent's transfer decision. Sent on the original
+// stream after the consultative agent responds.
+message ConsultationResult {
+  option (buf.validate.message).cel = {
+    id: "consultation_result.failure_reason_required_on_failure"
+    message: "failure_reason must be set when status is FAILED"
+    expression:
+      "this.status == "
+      "comcast.agent.v1.ConsultationResult.ConsultationStatus."
+      "CONSULTATION_STATUS_FAILED"
+      " ? this.failure_reason != "
+      "comcast.agent.v1.ConsultationResult."
+      "ConsultationFailureReason.CONSULTATION_FAILURE_REASON_"
+      "UNSPECIFIED"
+      " : true"
+  };
+
+  // Status of the consultation.
+  enum ConsultationStatus {
+    CONSULTATION_STATUS_UNSPECIFIED = 0;
+
+    // Consultative agent accepted the transfer.
+    CONSULTATION_STATUS_ACCEPTED = 1;
+
+    // Consultation failed. See ConsultationFailureReason for details.
+    CONSULTATION_STATUS_FAILED = 2;
+  }
+
+  // Reason for consultation failure.
+  enum ConsultationFailureReason {
+    CONSULTATION_FAILURE_REASON_UNSPECIFIED = 0;
+
+    // Internal error during consultation.
+    CONSULTATION_FAILURE_REASON_INTERNAL_ERROR = 1;
+
+    // Consultative agent rejected the transfer after conversing with target.
+    CONSULTATION_FAILURE_REASON_TRANSFER_REJECTED = 2;
+
+    // Consultative agent detected either voicemail, IVR, etc.
+    CONSULTATION_FAILURE_REASON_NO_HUMAN = 3;
+
+    // Transfer target disconnected during the consultation before the provider
+    // sent a TransferConfirmation.
+    CONSULTATION_FAILURE_REASON_TARGET_HANGUP = 4;
+  }
+
+  // Status of the consultation.
+  ConsultationStatus status = 1 [(buf.validate.field).enum.defined_only = true];
+
+  // Only set when status is FAILED.
+  ConsultationFailureReason failure_reason = 2 [(buf.validate.field).enum.defined_only = true];
+}
+
+// Result of the SIP bridge attempt. Sent on the original stream after the
+// consultative agent accepts and bridge is attempted.
+message BridgeResult {
+  option (buf.validate.message).cel = {
+    id: "bridge_result.failure_reason_required_on_failure"
+    message: "failure_reason must be set when status is FAILED"
+    expression:
+      "this.status == "
+      "comcast.agent.v1.BridgeResult.BridgeStatus.BRIDGE_STATUS_"
+      "FAILED"
+      " ? this.failure_reason != "
+      "comcast.agent.v1.BridgeResult.BridgeFailureReason.BRIDGE_"
+      "FAILURE_REASON_UNSPECIFIED"
+      " : true"
+  };
+
+  // Status of the bridge attempt.
+  enum BridgeStatus {
+    BRIDGE_STATUS_UNSPECIFIED = 0;
+
+    // Bridge succeeded, parties are connected.
+    BRIDGE_STATUS_SUCCEEDED = 1;
+
+    // Bridge failed.
+    BRIDGE_STATUS_FAILED = 2;
+  }
+
+  // Reason for bridge failure.
+  enum BridgeFailureReason {
+    BRIDGE_FAILURE_REASON_UNSPECIFIED = 0;
+
+    // Internal error during bridge.
+    BRIDGE_FAILURE_REASON_INTERNAL_ERROR = 1;
+
+    // SIP bridge attempt failed.
+    BRIDGE_FAILURE_REASON_SIP_ERROR = 2;
+  }
+
+  BridgeStatus status = 1 [(buf.validate.field).enum.defined_only = true];
+
+  // Only set when status is FAILED.
+  BridgeFailureReason failure_reason = 2 [(buf.validate.field).enum.defined_only = true];
+}
+
+// Result of a cold (blind) transfer attempt. Sent on the original stream after
+// the transfer target responds or the transfer is rejected.
+message ColdTransferResult {
+  option (buf.validate.message).cel = {
+    id: "cold_transfer_result.failure_reason_required_on_failure"
+    message: "failure_reason must be set when status is FAILED"
+    expression:
+      "this.status == "
+      "comcast.agent.v1.ColdTransferResult.ColdTransferStatus."
+      "COLD_TRANSFER_STATUS_FAILED"
+      " ? this.failure_reason != "
+      "comcast.agent.v1.ColdTransferResult."
+      "ColdTransferFailureReason."
+      "COLD_TRANSFER_FAILURE_REASON_UNSPECIFIED"
+      " : true"
+  };
+
+  // Status of the cold transfer attempt.
+  enum ColdTransferStatus {
+    COLD_TRANSFER_STATUS_UNSPECIFIED = 0;
+
+    // Transfer accepted by the network.
+    COLD_TRANSFER_STATUS_SUCCEEDED = 1;
+
+    // Transfer failed.
+    COLD_TRANSFER_STATUS_FAILED = 2;
+  }
+
+  // Reason for cold transfer failure.
+  enum ColdTransferFailureReason {
+    COLD_TRANSFER_FAILURE_REASON_UNSPECIFIED = 0;
+
+    // Internal error during transfer.
+    COLD_TRANSFER_FAILURE_REASON_INTERNAL_ERROR = 1;
+
+    // Transfer was rejected by the network.
+    COLD_TRANSFER_FAILURE_REASON_REJECTED = 2;
+  }
+
+  ColdTransferStatus status = 1 [(buf.validate.field).enum.defined_only = true];
+
+  // Only set when status is FAILED.
+  ColdTransferFailureReason failure_reason = 2 [(buf.validate.field).enum.defined_only = true];
+}

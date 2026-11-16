@@ -1,0 +1,64 @@
+/*
+   Copyright (c) 2026 Comcast
+   All rights reserved.
+
+   This source code and related materials are confidential and proprietary.
+   Unauthorized access, use, copying, modification, distribution, or disclosure
+   is strictly prohibited without prior written permission from Comcast.
+
+   This file is provided solely for use by authorized personnel under applicable
+   confidentiality obligations.
+*/
+
+syntax = "proto3";
+
+package comcast.agent.v1;
+
+import "buf/validate/validate.proto";
+import "comcast/agent/v1/common.proto";
+
+// Request to set up a call. Must be the first message on the stream.
+message CallSetupRequest {
+  // Identifier of the agent handling this call.
+  string agent_id = 1 [(buf.validate.field).string.min_len = 1];
+
+  // Unique call identifier.
+  string call_id = 2 [(buf.validate.field).string.uuid = true];
+
+  // Originator of the call.
+  PartyInfo calling_party = 3 [(buf.validate.field).required = true];
+
+  // Destination of the call.
+  PartyInfo called_party = 4 [(buf.validate.field).required = true];
+
+  // Correlates this stream to another active stream. e.g. for a call transfer,
+  // this would be the call_id of the original stream. this allows the agent to
+  // correlate related streams together.
+  optional string origination_request_id = 5 [(buf.validate.field).string.uuid = true];
+}
+
+// Response to a call setup request.
+message CallSetupResponse {
+  // Call setup status.
+  enum CallStatus {
+    CALL_STATUS_UNSPECIFIED = 0;
+    CALL_STATUS_ACCEPTED = 1;
+    CALL_STATUS_REJECTED = 2;
+  }
+
+  // Reason for rejection.
+  enum CallSetupRejectionReason {
+    CALL_SETUP_REJECTION_REASON_UNSPECIFIED = 0;
+    CALL_SETUP_REJECTION_REASON_INTERNAL_ERROR = 1;
+    CALL_SETUP_REJECTION_REASON_INVALID_CALL_ID = 2;
+    CALL_SETUP_REJECTION_REASON_INVALID_CALLING_PARTY = 3;
+    CALL_SETUP_REJECTION_REASON_INVALID_CALLED_PARTY = 4;
+    CALL_SETUP_REJECTION_REASON_AGENT_DISABLED = 5;
+  }
+
+  CallStatus status = 1 [(buf.validate.field).enum.defined_only = true];
+
+  // Only set when status is REJECTED.
+  CallSetupRejectionReason rejection_reason = 2 [(buf.validate.field).enum.defined_only = true];
+  string rejection_explanation = 3;
+}
